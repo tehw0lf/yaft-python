@@ -8,12 +8,11 @@ Java and Go ports are references for behaviour, not for API shape.
 
 - `src/yaft/model.py` — `Feature` (frozen dataclass, snake_case fields)
 - `src/yaft/evaluate.py` — `Clock`, `evaluate`, `parse_timestamp` (R3–R13,
-  R27, R28). Timestamps are computed to epoch milliseconds by hand, not via
-  `datetime`, so the accepted range and truncation match JavaScript exactly.
-  The pattern needs `re.ASCII` and `fullmatch`.
-- `src/yaft/mapping.py` — response normalisation (R22–R25, R29, R30). Non-string
-  keys and values are written out like JSON (`true` → `"true"`), as every other
-  port does.
+  R27, R28). `datetime` does the calendar checks; only the offset minutes are
+  checked by hand. The pattern needs `re.ASCII` and `fullmatch`.
+- `src/yaft/mapping.py` — response normalisation (R22–R25, R29, R30). A key or
+  value that is not a string is not set: no coercion, JSON booleans belong in
+  the boolean shape.
 - `src/yaft/providers.py` — `FeatureProvider` protocol, local providers;
   `LocalFeatureProvider.load` is the all-or-nothing refresh (R30)
 - `src/yaft/toggle.py` — `feature_toggle`, `set_provider`; functions per call,

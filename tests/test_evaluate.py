@@ -10,16 +10,11 @@ from yaft import Feature, evaluate, parse_timestamp, system_clock
 ON = Feature(key="f", value="true")
 
 
-def test_parses_to_epoch_milliseconds() -> None:
-    assert parse_timestamp("1970-01-01T00:00:00Z") == 0
-    assert parse_timestamp("2026-09-18T14:00:00+02:00") == parse_timestamp("2026-09-18T12:00:00Z")
-    assert parse_timestamp("2026-09-18T12:00:00.123456Z") == 1_789_732_800_123
-
-
-def test_reaches_before_datetime_can() -> None:
-    # datetime stops at year 1; JavaScript's Date.parse does not.
-    assert parse_timestamp("0000-01-01T00:00:00Z") == -62_167_219_200_000
-    assert parse_timestamp("1969-12-31T23:59:59.999Z") == -1
+def test_parses_to_an_aware_datetime() -> None:
+    assert parse_timestamp("2026-09-18T14:00:00+02:00") == datetime(2026, 9, 18, 12, tzinfo=UTC)
+    assert parse_timestamp("2026-09-18T12:00:00.123456Z") == datetime(
+        2026, 9, 18, 12, 0, 0, 123_000, tzinfo=UTC
+    )
 
 
 @pytest.mark.parametrize(

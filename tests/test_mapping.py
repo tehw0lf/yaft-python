@@ -1,15 +1,23 @@
 """Mapping details the conformance suite does not pin down."""
 
-from yaft import Feature, normalise_booleans, normalise_feature, normalise_group
+from yaft import (
+    Feature,
+    normalise_booleans,
+    normalise_collection,
+    normalise_feature,
+    normalise_group,
+)
 
 
-def test_non_string_values_read_like_the_other_ports() -> None:
-    # Go, Java and TypeScript all turn the JSON boolean true into "true".
-    # Python's str(True) is "True", which would be off in this port alone.
-    assert normalise_feature({"key": "f", "value": True}).value == "true"
-    assert normalise_feature({"key": "f", "value": False}).value == "false"
-    assert normalise_feature({"key": 7, "value": "true"}).key == "7"
-    assert normalise_feature({"key": 7.0, "value": "true"}).key == "7"
+def test_a_value_that_is_not_a_string_is_not_set() -> None:
+    # A JSON boolean belongs in the boolean shape; in the feature shape it is
+    # not coerced to "true", so the feature is off (R1, R4).
+    assert normalise_feature({"key": "f", "value": True}).value == ""
+    assert normalise_feature({"key": "f", "value": 1}).value == ""
+
+
+def test_an_entry_whose_key_is_not_a_string_is_skipped() -> None:
+    assert normalise_collection({"toggles": [{"key": 7, "value": "true"}]}) == {}
 
 
 def test_tags_that_are_not_strings_are_dropped() -> None:

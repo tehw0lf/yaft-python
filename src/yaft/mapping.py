@@ -4,7 +4,6 @@ This is the single definition of the mapping rules, the way
 :func:`yaft.evaluate` is the single definition of the evaluation rules.
 """
 
-import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -27,23 +26,14 @@ def _field(raw: Mapping[str, Any], lower: str, upper: str) -> Any:
 
 
 def _text(value: Any) -> str:
-    """Reads a key or value the way the other ports do.
+    """A string field, or ``""`` for anything that is not a string.
 
-    ``None`` is empty. Anything else that is not a string is written out as
-    JSON would: every port turns the JSON boolean ``true`` into ``"true"``, and
-    Python's ``str(True)`` would be ``"True"``, which is off.
+    ``value`` is a string by definition (R1); a JSON boolean belongs in the
+    boolean shape, not here. So ``"value": true`` is not coerced to ``"true"``
+    -- it is not set, and the feature is off. A key that is not a string is
+    likewise no key, and the entry is skipped (R25). The backend sends ``null``
+    for an unset bound and fixtures ``""``; both are no bound (R24).
     """
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    if isinstance(value, float) and value.is_integer():
-        return str(int(value))
-    return json.dumps(value, separators=(",", ":"))
-
-
-def _date(value: Any) -> str:
-    """The backend sends ``null`` for an unset bound, fixtures ``""`` (R24)."""
     return value if isinstance(value, str) else ""
 
 
@@ -53,8 +43,8 @@ def normalise_feature(raw: Mapping[str, Any]) -> Feature:
     return Feature(
         key=_text(_field(raw, "key", "Key")),
         value=_text(_field(raw, "value", "Value")),
-        active_at=_date(_field(raw, "activeAt", "ActiveAt")),
-        disabled_at=_date(_field(raw, "disabledAt", "DisabledAt")),
+        active_at=_text(_field(raw, "activeAt", "ActiveAt")),
+        disabled_at=_text(_field(raw, "disabledAt", "DisabledAt")),
         # Filtered rather than trusted: a mixed array would otherwise hand
         # callers a non-string through a field typed as strings.
         tags=tuple(tag for tag in tags if isinstance(tag, str)) if isinstance(tags, list) else (),
