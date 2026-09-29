@@ -1,0 +1,33 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build_and_publish:
+    uses: tehw0lf/workflows/.github/workflows/build-test-publish.yml@main
+    permissions:
+      id-token: write
+      attestations: write
+      actions: write
+      contents: write
+      packages: write
+      security-events: write
+      pull-requests: write
+    with:
+      tool: uv
+      install: sync
+      lint: run ruff check && uv run ruff format --check && uv run mypy
+      # Fetches the conformance suite pinned in conformance.lock, then runs
+      # every test on the oldest and the newest supported Python: the
+      # orchestrator installs one version, so 3.11 would otherwise go
+      # untested and a newer-only construct would ship unnoticed.
+      test: run ./scripts/fetch-conformance.sh && uv run --python 3.11 pytest && uv run --python 3.14 pytest
+      build_branch: build
+      build_main: build
+      artifact_path: dist
+      # No PyPI yet: publishing comes with the API provider, once Trusted
+      # Publishing is configured on pypi.org.
