@@ -9,8 +9,15 @@ from collections.abc import Mapping
 
 import pytest
 
-from yaft import Feature, LocalBooleanProvider, LocalFeatureProvider, normalise_collection
+from yaft import (
+    APIFeatureProvider,
+    Feature,
+    LocalBooleanProvider,
+    RefreshError,
+    normalise_collection,
+)
 
+from ..backend import GROUP, Backend, running
 from .cases import Case, as_record, load, title, unsupported
 
 CASES = load("mapping")
@@ -28,7 +35,8 @@ def test_loads_the_suite() -> None:
 def test_mapping(case: Case) -> None:
     match case["shape"]:
         case "feature" if "held" in case:
-            refresh(case)
+            with running() as backend:
+                refresh(case, backend)
         case "feature":
             assert records(normalise_collection(case["response"])) == case["expected"]
         case "boolean":
@@ -43,31 +51,36 @@ def test_mapping(case: Case) -> None:
             unsupported("shape", other, case)
 
 
-def refresh(case: Case) -> None:
-    """A refresh case (R30, R32): ``held`` is loaded, then ``response`` arrives.
+def refresh(case: Case, backend: Backend) -> None:
+    """A refresh case (R30, R32) through the API provider, over HTTP.
 
-    This port has no API provider yet, so the refresh goes through
-    ``LocalFeatureProvider.load``, which the API provider will use as well.
-    ``load`` must raise exactly when the case says the response is rejected
-    (R32), and leave the data the case expects. ``retry`` checks that a
-    rejected refresh does not block the next one; without a collection hash
-    there is nothing to record, so here it only checks the data it loads.
+    ``held`` is loaded first, then the backend answers with a new hash and
+    ``response``. The refresh must raise exactly when the case says the
+    response is rejected (R32), and leave the data the case expects. ``retry``
+    comes with the same hash as the rejected response: a provider that
+    recorded the hash of a body it rejected never fetches again (R30).
     """
     rejected = case["rejected"]
     if not isinstance(rejected, bool):
         unsupported("rejected", rejected, case)
 
-    provider = LocalFeatureProvider.from_response({"toggles": list(case["held"].values())})
+    backend.serve("held", {"toggles": list(case["held"].values())})
+    provider = APIFeatureProvider(backend.url, GROUP)
+    assert provider.refresh()
     assert records(provider.data) == case["held"]
 
+    backend.serve("response", case["response"])
     if rejected:
-        with pytest.raises(ValueError, match="not a toggle group"):
-            provider.load(case["response"])
+        with pytest.raises(RefreshError):
+            provider.refresh()
     else:
-        provider.load(case["response"])
+        provider.refresh()
     assert records(provider.data) == case["expected"]
 
     retry = case.get("retry")
     if retry is not None:
-        provider.load(retry["response"])
+        if not isinstance(retry, dict):
+            unsupported("retry", retry, case)
+        backend.serve("response", retry["response"])
+        provider.refresh()
         assert records(provider.data) == retry["expected"]

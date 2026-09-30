@@ -1,0 +1,45 @@
+name: Publish
+
+# PyPI's Trusted Publishing names the workflow that uploads, and it cannot be a
+# reusable workflow from another repository. So the build stays in
+# tehw0lf/workflows and this workflow only uploads what that build produced,
+# via OIDC, without a token.
+on:
+  workflow_run:
+    workflows: [ Build ]
+    types: [ completed ]
+    branches: [ main ]
+
+jobs:
+  publish_to_pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    # A pull request from a fork whose branch is also called main would pass
+    # the branches filter; only a push to this repository publishes.
+    if: >-
+      github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/p/yaft
+    permissions:
+      actions: read
+      id-token: write
+    steps:
+      - name: Download the build artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: build
+          path: dist
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      # Fails if the version is already on PyPI, which never replaces a file:
+      # a merge without a version bump should be loud, not skipped.
+      - name: Publish to PyPI
+        # Named explicitly: uv build also leaves a .gitignore in dist.
+        run: uv publish --trusted-publishing always dist/*.whl dist/*.tar.gz
