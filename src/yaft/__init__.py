@@ -14,6 +14,7 @@ the rules every YaFT port shares (https://github.com/tehw0lf/yaft-conformance)::
 
 from importlib.metadata import PackageNotFoundError, version
 
+from .api import APIFeatureProvider, RefreshError
 from .evaluate import Clock, evaluate, parse_timestamp, system_clock
 from .mapping import normalise_booleans, normalise_collection, normalise_feature, normalise_group
 from .model import Feature
@@ -26,12 +27,14 @@ except PackageNotFoundError:  # pragma: no cover - only without an installed dis
     __version__ = "0+unknown"
 
 __all__ = [
+    "APIFeatureProvider",
     "Clock",
     "Feature",
     "FeatureProvider",
     "LocalBooleanProvider",
     "LocalFeatureProvider",
     "ProviderNotSetError",
+    "RefreshError",
     "__version__",
     "evaluate",
     "feature_toggle",

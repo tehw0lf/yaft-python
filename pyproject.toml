@@ -1,6 +1,6 @@
 [project]
 name = "yaft"
-version = "0.1.0"
+version = "0.2.0"
 description = "Yet another Feature Toggle: decorators for functions, methods and classes"
 readme = "README.md"
 license = "MIT"

@@ -29,5 +29,6 @@ jobs:
       build_branch: build
       build_main: build
       artifact_path: dist
-      # No PyPI yet: publishing comes with the API provider, once Trusted
-      # Publishing is configured on pypi.org.
+      # PyPI is not published from here: publish.yml uploads this build's
+      # artifact after a push to main, because Trusted Publishing cannot
+      # name a reusable workflow from another repository.

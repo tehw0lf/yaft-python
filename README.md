@@ -17,10 +17,10 @@ typed, and has no runtime dependencies. Python 3.11 or later.
 
 ## Installation
 
-Not on PyPI yet; that comes with the API provider. Until then:
-
 ```bash
-pip install git+https://github.com/tehw0lf/yaft-python
+pip install yaft
+# or
+uv add yaft
 ```
 
 ```python
@@ -41,6 +41,7 @@ set_provider(LocalFeatureProvider({"newCheckout": Feature(key="newCheckout", val
 |---|---|---|
 | `LocalFeatureProvider` | full `Feature` records | yes: `active_at`, `disabled_at` |
 | `LocalBooleanProvider` | `{"myToggle": True}` | none, by design |
+| `APIFeatureProvider` | one group of a YaFT backend | yes, evaluated locally |
 
 Both read a JSON file with `from_file(path)`. `LocalFeatureProvider` takes a
 YaFT backend response (`{"toggles": [...]}`, in either field spelling) or
@@ -56,6 +57,49 @@ A missing or unreadable file raises instead of starting with everything off.
 `load(response)` replaces the data with a newer backend response, all or
 nothing: a body that is not a toggle group raises `ValueError` and the old
 data stays.
+
+### From a YaFT backend
+
+`APIFeatureProvider` loads one toggle group over HTTP, with `urllib` and
+nothing else:
+
+```python
+import threading
+import time
+
+from yaft import APIFeatureProvider, set_provider
+
+provider = APIFeatureProvider("https://yaft.example.com", "896ea308-382f-46b0-bc59-d93a28013633")
+provider.refresh()  # raises RefreshError if the backend cannot be reached
+set_provider(provider)
+
+
+def refresh_every_minute() -> None:
+    while True:
+        time.sleep(60)
+        provider.refresh_quietly()  # logs a failure instead of raising it
+
+
+threading.Thread(target=refresh_every_minute, daemon=True).start()
+```
+
+Nothing is fetched until the first `refresh()`; until then every feature is
+off. `refresh()` asks `/collectionHash/{uuid}` first and fetches
+`/features/{uuid}` only when the group changed. It returns `True` for new data
+and `False` for none, and raises `RefreshError` when the backend is down or
+answers with something that is not a toggle group. The previous data then
+stays: an outage does not switch everything off. An empty group does, because
+that is what deleting its last toggle looks like.
+
+A toggle is found by its name (`"newCheckout"`) or its full key
+(`"896ea308-…|newCheckout"`). Time bounds are evaluated locally, so a
+scheduled toggle flips at its instant, not when the backend's cron job runs.
+Keyword arguments: `timeout` (seconds per request, default 5),
+`max_body_bytes` (default 1 MiB), `clock`, and `opener` for a custom
+`urllib.request.OpenerDirector`, for example one with its own TLS context.
+The default opener follows no redirects.
+
+### Your own provider
 
 Any object with an `is_enabled(key: str) -> bool` method is a provider, for
 example one that reads environment variables.
