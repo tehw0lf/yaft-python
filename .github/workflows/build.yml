@@ -14,6 +14,9 @@ jobs:
       attestations: write
       actions: write
       contents: write
+      # The reusable security scan has a job that opens an issue when a
+      # scheduled scan fails; GitHub checks its permission at startup.
+      issues: write
       packages: write
       security-events: write
       pull-requests: write
